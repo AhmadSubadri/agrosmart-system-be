@@ -15,6 +15,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\RingkasanDataController;
 use App\Http\Controllers\UserSiteController;
 use App\Http\Controllers\AreaOptionController;
+use App\Http\Controllers\ProfileController;
 
 // Route::middleware('auth:sanctum')->get('/user/sites', [UserSiteController::class, 'index']);
 Route::middleware('auth:sanctum')->prefix('site')->group(function () {
@@ -62,13 +63,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
-Route::middleware('auth:sanctum')->get('/profile', [AuthController::class, 'show']);
 Route::middleware('auth:sanctum')->get('/dashboard', [DashboardController::class, 'index']);
 
 
 Route::post('/register', [RegisterController::class, 'register']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/change-password', [ProfileController::class, 'changePassword']);
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::delete('/profile', [ProfileController::class, 'destroy']);
+
     Route::post('/chat/send', [ChatbotController::class, 'send']);
     Route::get('/chat/history/{name_chat}', [ChatbotController::class, 'getHistoryByNameChat']);
     Route::delete('/chat/history/{name_chat}', [ChatbotController::class, 'deleteByNameChat']);
