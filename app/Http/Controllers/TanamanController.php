@@ -93,7 +93,7 @@ class TanamanController extends Controller
 
         Log::info('Validated update data:', $validated);
 
-        $plant->update(array_merge($validated, ['pl_update' => now()]));
+        $plant->update(array_merge($validated, ['pl_date_planting' => now()]));
         $plant->refresh();
 
         return response()->json([

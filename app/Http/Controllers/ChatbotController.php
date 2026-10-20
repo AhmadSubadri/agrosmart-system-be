@@ -287,8 +287,11 @@ class ChatbotController extends Controller
     ): string {
         try {
             $apiKey = env('OPENAI_API_KEY');
+            $baseUrl = rtrim(env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'), '/');
+            $model = env('OPENAI_MODEL', 'llama-3.3-70b-versatile');
+
             if (empty($apiKey)) {
-                Log::error('[OPENAI] API Key not configured');
+                Log::error('[AI] API Key not configured');
                 return 'Maaf, sistem AI belum dikonfigurasi dengan benar. Silakan hubungi administrator.';
             }
 
@@ -311,23 +314,24 @@ class ChatbotController extends Controller
 
             $messages[] = ['role' => 'user', 'content' => $userMessage];
 
-            Log::info('[OPENAI REQUEST]', ['message_count' => count($messages)]);
+            Log::info('[AI REQUEST]', ['model' => $model, 'message_count' => count($messages)]);
 
-            $response = Http::timeout(45)
+            $response = Http::withoutVerifying()
+                ->timeout(45)
                 ->retry(2, 100)
                 ->withHeaders([
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type' => 'application/json',
                 ])
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => 'gpt-3.5-turbo',
+                ->post($baseUrl . '/chat/completions', [
+                    'model' => $model,
                     'messages' => $messages,
                     'temperature' => 0.4,
-                    'max_tokens' => 800,
+                    'max_tokens' => 2048,
                 ]);
 
             if (!$response->successful()) {
-                Log::error('[OPENAI API ERROR]', [
+                Log::error('[AI API ERROR]', [
                     'status' => $response->status(),
                     'body' => $response->json()
                 ]);
@@ -344,7 +348,7 @@ class ChatbotController extends Controller
             $result = $response->json();
 
             if (!isset($result['choices'][0]['message']['content'])) {
-                Log::error('[OPENAI RESPONSE ERROR]', ['response' => $result]);
+                Log::error('[AI RESPONSE ERROR]', ['response' => $result]);
                 return 'Maaf, saya tidak dapat memberikan jawaban saat ini. Silakan coba lagi.';
             }
 
@@ -354,12 +358,12 @@ class ChatbotController extends Controller
                 return 'Maaf, saya tidak dapat memberikan jawaban yang tepat. Bisakah Anda mengulang pertanyaan dengan cara yang berbeda?';
             }
 
-            Log::info('[OPENAI SUCCESS]', ['answer_length' => strlen($answer)]);
+            Log::info('[AI SUCCESS]', ['answer_length' => strlen($answer)]);
 
             return $answer;
 
         } catch (\Exception $e) {
-            Log::error('[OPENAI EXCEPTION]', [
+            Log::error('[AI EXCEPTION]', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -371,24 +375,27 @@ class ChatbotController extends Controller
     {
         try {
             $apiKey = env('OPENAI_API_KEY');
+            $baseUrl = rtrim(env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'), '/');
+            $model = env('OPENAI_MODEL', 'llama-3.3-70b-versatile');
+
             if (empty($apiKey)) {
                 return 'Maaf, sistem AI belum dikonfigurasi. Silakan hubungi administrator.';
             }
 
-            $systemPrompt = "Kamu adalah KawalTani, asisten pertanian pintar untuk petani Indonesia.
+            $systemPrompt = "Kamu adalah KawalTani, asisten AI agronomis dan sahabat tani pintar untuk petani di seluruh Indonesia.
 
-TUGAS KAMU:
-- Menjawab pertanyaan seputar pertanian dengan ramah dan mudah dipahami
-- Memberikan tips praktis dan edukatif
-- Menggunakan bahasa yang sederhana tapi informatif
-- Fokus pada solusi praktis untuk petani
+GAYA KOMUNIKASI & PERSONALITAS:
+- Berbicaralah dengan gaya yang ramah, hangat, santun, komunikatif, dan solutif seperti seorang Penyuluh Pertanian Lapangan (PPL) yang berpengalaman dan akrab dengan petani.
+- Hindari gaya bahasa yang kaku, dingin, atau terlalu formal seperti robot. Gunakan bahasa Indonesia yang luwes, alami, dan mudah dipahami oleh siapa saja.
+- Tunjukkan empati dan kepedulian terhadap hasil panen dan kesehatan lahan petani. Berikan penjelasan 'mengapa' dan saran langkah nyata 'apa yang harus dilakukan'.
 
-ATURAN:
-- Jangan berikan informasi medis
-- Jika ditanya data sensor spesifik, arahkan untuk bertanya dengan kata kunci 'data', 'sensor', atau 'berapa'
-- Berikan jawaban yang konkret dan actionable
-- Jika tidak yakin, akui dengan jujur
-- Jawab dalam bahasa Indonesia";
+SAPAAN & STATUS SISTEM (DIPERBOLEHKAN):
+- Jika pengguna menyapa (contoh: 'Halo', 'Hai', 'Selamat pagi') atau menanyakan kesiapan/status ('Apakah masih gangguan?', 'Apakah aktif?', 'Sudah siap?'), tanggapi dengan hangat dan antusias bahwa sistem KawalTani sudah aktif normal dan siap membantu kebutuhan tani mereka.
+
+BATASAN KETAT (GUARDRAIL TOPIK):
+- Kamu HANYA melayani topik seputar PERTANIAN, BUDIDAYA TANAMAN, KESEHATAN TANAH, PUPUK, PENGENDALIAN HAMA, DAN MONITORING LAHAN/SENSOR KAWALTANI.
+- Jika pengguna meminta hal di luar pertanian (seperti koding/programming, politik, gaming), tolak dengan santun dan ramah, lalu tawarkan bantuan seputar pertanian.
+- JANGAN PERNAH membuat baris kode (script/programming).";
 
             $messages = [['role' => 'system', 'content' => $systemPrompt]];
 
@@ -402,20 +409,25 @@ ATURAN:
 
             $messages[] = ['role' => 'user', 'content' => $message];
 
-            $response = Http::timeout(45)
+            $response = Http::withoutVerifying()
+                ->timeout(45)
                 ->retry(2, 100)
                 ->withHeaders([
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type' => 'application/json',
                 ])
-                ->post('https://api.openai.com/v1/chat/completions', [
-                    'model' => 'gpt-3.5-turbo',
+                ->post($baseUrl . '/chat/completions', [
+                    'model' => $model,
                     'messages' => $messages,
                     'temperature' => 0.7,
-                    'max_tokens' => 600,
+                    'max_tokens' => 2048,
                 ]);
 
             if (!$response->successful()) {
+                Log::error('[AI GENERAL ERROR]', [
+                    'status' => $response->status(),
+                    'body' => $response->json()
+                ]);
                 return 'Maaf, KawalTani sedang mengalami gangguan. Silakan coba lagi.';
             }
 
@@ -548,65 +560,43 @@ ATURAN:
 
     private function buildSystemPrompt(string $intent): string
     {
-        $basePrompt = "Kamu adalah KawalTani, asisten pertanian pintar untuk petani Indonesia. Jawab SELALU dalam bahasa Indonesia.";
+        $basePrompt = "Kamu adalah KawalTani, asisten AI pintar spesialis pertanian dan smart farming untuk petani Indonesia. Jawab SELALU dalam bahasa Indonesia.
+
+SAPAAN & STATUS:
+- Jika pengguna menyapa atau menanyakan kesiapan ('Halo', 'Apakah masih gangguan?', 'Kamu aktif?'), konfirmasikan dengan ramah bahwa kamu aktif dan siap membantu konsultasi pertanian.
+
+BATASAN KETAT (GUARDRAIL):
+- Kamu HANYA melayani topik seputar PERTANIAN, BUDIDAYA TANAMAN, KESEHATAN TANAH, PEMUPUKAN, PENGENDALIAN HAMA, DAN MONITORING SENSOR KAWALTANI.
+- Jika ada permintaan di luar pertanian (seperti membuat koding/script, topik politik, gaming), TOLAK DENGAN RAMAH dan jangan membuat koding apapun.";
 
         switch ($intent) {
             case 'analysis':
                 return $basePrompt . "
 
-TUGAS: ANALISIS & PENJELASAN
-
-CARA MENJAWAB:
-1. Lihat data sensor yang tersedia
-2. Jelaskan kondisi (normal/tidak normal)
-3. Berikan PENYEBAB berdasarkan data
-4. Jelaskan DAMPAK jika dibiarkan
-5. Berikan saran singkat
-
-ATURAN:
-- Gunakan HANYA data yang tersedia
-- Jika data tidak ada, katakan 'data tidak tersedia'
-- JANGAN mengarang angka
-- Gunakan bahasa sederhana
-- Jawab dalam bahasa Indonesia";
+TUGAS: ANALISIS KONDISI LAHAN & DIAGNOSA
+GAYA JAWABAN:
+- Bicaralah seperti konsultan agronomik yang ramah dan peduli.
+- Jelaskan arti dari angka sensor yang terbaca (apakah tanah sedang subur, terlalu basah, atau kurang hara).
+- Sampaikan penyebab logis dan dampaknya bagi tanaman dengan bahasa yang mudah dicerna.
+- Berikan saran penanganan awal yang realistis untuk petani di lahan.";
 
             case 'recommendation':
                 return $basePrompt . "
 
-TUGAS: REKOMENDASI & SOLUSI
-
-CARA MENJAWAB:
-1. Analisis data sensor
-2. Tentukan kondisi tanah
-3. Berikan 3-5 rekomendasi PRAKTIS
-4. Prioritaskan solusi mudah dilakukan
-5. Sertakan estimasi jika relevan
-
-ATURAN:
-- Rekomendasi berdasarkan DATA
-- JANGAN rekomendasikan brand spesifik
-- Fokus pada tindakan praktis
-- Gunakan bahasa jelas
-- Jawab dalam bahasa Indonesia";
+TUGAS: REKOMENDASI PEMUPUKAN & PERAWATAN
+GAYA JAWABAN:
+- Berikan 3-4 rekomendasi tindakan nyata yang runtut dan praktis.
+- Fokus pada dosis nutrisi, pengaturan drainase/irigasi, atau penyesuaian pH sesuai kondisi riil.
+- Jelaskan tips lapangan yang mudah dipraktikkan tanpa istilah teknis yang membingungkan.";
 
             case 'data':
                 return $basePrompt . "
 
-TUGAS: INFORMASI DATA
-
-CARA MENJAWAB:
-1. Tampilkan data yang ditanyakan
-2. Interpretasi singkat (normal/tidak)
-3. Jelaskan standar ideal
-4. Bandingkan dengan standar
-
-ATURAN:
-- Gunakan HANYA angka dari data tersedia
-- Format: 'Nilai X adalah Y satuan'
-- Jika tidak ada, katakan 'Data X belum tersedia'
-- JANGAN mengarang angka
-- Jawab singkat dan faktual
-- Jawab dalam bahasa Indonesia";
+TUGAS: INFORMASI DATA TELEMETRI SENSOR
+GAYA JAWABAN:
+- Sebutkan data sensor yang berhasil tercatat beserta waktu pengukurannya secara jelas.
+- Berikan interpretasi singkat apakah nilainya sudah ideal untuk tanaman (misal: padi, jagung, dll).
+- Tidak perlu mengulang-ulang parameter yang kosong jika tidak ditanyakan secara spesifik, cukup fokus pada data yang aktif dan relevan.";
 
             default:
                 return $basePrompt;
@@ -721,25 +711,36 @@ ATURAN:
 
         try {
             $apiKey = env('OPENAI_API_KEY');
+            $baseUrl = rtrim(env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'), '/');
+            $model = env('OPENAI_MODEL', 'openai/gpt-oss-120b');
+
             if (empty($apiKey)) {
                 $reply = 'Maaf, sistem AI belum dikonfigurasi. Silakan hubungi administrator.';
             } else {
-                $systemPrompt = "Kamu adalah KawalTani, asisten pertanian pintar untuk petani Indonesia. Jawab dalam bahasa Indonesia dengan ramah dan informatif.";
+                $systemPrompt = "Kamu adalah KawalTani, asisten AI pintar spesialis pertanian dan smart farming untuk petani Indonesia. Jawab SELALU dalam bahasa Indonesia dengan ramah dan informatif.
 
-                $response = Http::timeout(45)
+SAPAAN & STATUS:
+- Jika pengguna menyapa atau menanyakan status kesiapan ('Halo', 'Apakah masih gangguan?', 'Apakah aktif?'), konfirmasikan dengan hangat bahwa sistem KawalTani sudah normal, aktif, dan siap membantu konsultasi pertanian.
+
+BATASAN KETAT (GUARDRAIL):
+- Kamu HANYA melayani topik seputar PERTANIAN, BUDIDAYA TANAMAN, KESEHATAN TANAH, PEMUPUKAN, PENGENDALIAN HAMA, DAN MONITORING SENSOR KAWALTANI.
+- Jika pengguna meminta hal di luar konteks pertanian (seperti koding/programming, politik, gaming), TOLAK DENGAN RAMAH dan jangan membuat baris kode program apapun.";
+
+                $response = Http::withoutVerifying()
+                    ->timeout(45)
                     ->retry(2, 100)
                     ->withHeaders([
                         'Authorization' => 'Bearer ' . $apiKey,
                         'Content-Type' => 'application/json',
                     ])
-                    ->post('https://api.openai.com/v1/chat/completions', [
-                        'model' => 'gpt-3.5-turbo',
+                    ->post($baseUrl . '/chat/completions', [
+                        'model' => $model,
                         'messages' => [
                             ['role' => 'system', 'content' => $systemPrompt],
                             ['role' => 'user', 'content' => $message],
                         ],
                         'temperature' => 0.7,
-                        'max_tokens' => 600,
+                        'max_tokens' => 2048,
                     ]);
 
                 if (!$response->successful()) {
