@@ -288,7 +288,7 @@ class ChatbotController extends Controller
         try {
             $apiKey = env('OPENAI_API_KEY');
             $baseUrl = rtrim(env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'), '/');
-            $model = env('OPENAI_MODEL', 'llama-3.3-70b-versatile');
+            $model = env('OPENAI_MODEL', 'openai/gpt-oss-20b');
 
             if (empty($apiKey)) {
                 Log::error('[AI] API Key not configured');
@@ -376,7 +376,7 @@ class ChatbotController extends Controller
         try {
             $apiKey = env('OPENAI_API_KEY');
             $baseUrl = rtrim(env('OPENAI_BASE_URL', 'https://api.groq.com/openai/v1'), '/');
-            $model = env('OPENAI_MODEL', 'llama-3.3-70b-versatile');
+            $model = env('OPENAI_MODEL', 'openai/gpt-oss-20b');
 
             if (empty($apiKey)) {
                 return 'Maaf, sistem AI belum dikonfigurasi. Silakan hubungi administrator.';
