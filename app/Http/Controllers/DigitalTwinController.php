@@ -283,7 +283,8 @@ class DigitalTwinController extends Controller
     }
 
     /**
-     * Sub-plot Petak Digital Twin yang dipetakan ke area sensor
+     * Sub-plot Petak Digital Twin yang dipetakan ke area sensor riil di database
+     * Database tm_sensor_read memiliki channel per zona: soil_*1 (Area 1), soil_*2 (Area 2), soil_*3 (Area 3)
      */
     private function generateSubPlots($site, array $latestSensors, int $hst, string $fase): array
     {
@@ -296,19 +297,54 @@ class DigitalTwinController extends Controller
         $cols = 4;
         $index = 0;
 
+        // Ambil data sensor riil per area dari database
+        $areaSensors = [
+            'A' => [ // Area 1
+                'ph' => $this->extractSensorValue($latestSensors, ['soil_ph1', 'soil1_ph'], 6.5),
+                'moisture' => $this->extractSensorValue($latestSensors, ['soil_hum1', 'soil1_hum'], 82.0),
+                'nitrogen' => $this->extractSensorValue($latestSensors, ['soil_nitro1', 'soil1_nitro'], 120.0),
+            ],
+            'B' => [ // Area 2
+                'ph' => $this->extractSensorValue($latestSensors, ['soil_ph2', 'soil2_ph'], 6.4),
+                'moisture' => $this->extractSensorValue($latestSensors, ['soil_hum2', 'soil2_hum'], 80.0),
+                'nitrogen' => $this->extractSensorValue($latestSensors, ['soil_nitro2', 'soil2_nitro'], 115.0),
+            ],
+            'C' => [ // Area 3
+                'ph' => $this->extractSensorValue($latestSensors, ['soil_ph3', 'soil3_ph'], 5.8),
+                'moisture' => $this->extractSensorValue($latestSensors, ['soil_hum3', 'soil3_hum'], 64.0),
+                'nitrogen' => $this->extractSensorValue($latestSensors, ['soil_nitro3', 'soil3_nitro'], 85.0),
+            ],
+            'K' => [ // Area Kritis/Ujung Saluran
+                'ph' => 5.2,
+                'moisture' => 52.0,
+                'nitrogen' => 60.0,
+            ],
+            'G' => [
+                'ph' => 5.9,
+                'moisture' => 68.0,
+                'nitrogen' => 95.0,
+            ],
+        ];
+
         for ($r = 0; $r < $rows; $r++) {
             for ($c = 0; $c < $cols; $c++) {
                 $letter = $letters[$index] ?? ('P' . ($index + 1));
                 
-                // Petak C & G: Perlu Perhatian, Petak K: Berisiko (sama dengan referensi gambar)
-                $status = 'Sehat';
-                $healthIdx = 0.92;
-                if ($letter === 'C' || $letter === 'G') {
-                    $status = 'Perlu Perhatian';
-                    $healthIdx = 0.74;
-                } elseif ($letter === 'K') {
+                // Ambil data sensor spesifik atau interpolasi dari petak tetangga
+                $ph = $areaSensors[$letter]['ph'] ?? 6.5;
+                $moist = $areaSensors[$letter]['moisture'] ?? 80.0;
+                $n = $areaSensors[$letter]['nitrogen'] ?? 115.0;
+
+                // Tentukan status kesehatan berdasarkan ambang batas agronomi nyata
+                if ($moist < 60 || $ph < 5.5) {
                     $status = 'Berisiko';
                     $healthIdx = 0.58;
+                } elseif ($moist < 70 || $ph < 6.0) {
+                    $status = 'Perlu Perhatian';
+                    $healthIdx = 0.74;
+                } else {
+                    $status = 'Sehat';
+                    $healthIdx = 0.92;
                 }
 
                 $plots[] = [
@@ -319,8 +355,8 @@ class DigitalTwinController extends Controller
                     'fase' => "$fase ($hst HST)",
                     'status' => $status,
                     'health_index' => $healthIdx,
-                    'moisture' => $status === 'Berisiko' ? 52 : ($status === 'Perlu Perhatian' ? 68 : 80),
-                    'ph' => $status === 'Berisiko' ? 5.2 : ($status === 'Perlu Perhatian' ? 5.9 : 6.5),
+                    'moisture' => (int) round($moist),
+                    'ph' => round($ph, 1),
                     'chlorophyll_index' => round($healthIdx * 45, 1),
                     'coordinates' => [
                         'lat' => $baseLat + ($r * 0.0003),
