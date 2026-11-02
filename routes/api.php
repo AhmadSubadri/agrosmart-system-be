@@ -16,6 +16,7 @@ use App\Http\Controllers\RingkasanDataController;
 use App\Http\Controllers\UserSiteController;
 use App\Http\Controllers\AreaOptionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\DigitalTwinController;
 
 // Route::middleware('auth:sanctum')->get('/user/sites', [UserSiteController::class, 'index']);
 Route::middleware('auth:sanctum')->prefix('site')->group(function () {
@@ -82,4 +83,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/chat/rename-chat/{name_chat}', [ChatbotController::class, 'renameChat']);
     Route::post('/chat/new', [ChatbotController::class, 'newChat']);
     Route::post('/data/summary', [RingkasanDataController::class, 'getSummary']);
+    Route::get('/digital-twin/dashboard', [DigitalTwinController::class, 'getDashboard']);
 });
+
+// Endpoint Digital Twin publik / opsional (dengan atau tanpa token)
+Route::get('/digital-twin/dashboard', [DigitalTwinController::class, 'getDashboard']);
