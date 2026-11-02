@@ -20,6 +20,7 @@ class DigitalTwinController extends Controller
         try {
             $user = $request->user();
             $siteId = $request->input('site_id');
+            $season = $request->input('season', 'Musim Tanam 2025/2026');
 
             // 1. Dapatkan site yang dituju (atau site pertama milik user/publik)
             $site = null;
@@ -96,29 +97,41 @@ class DigitalTwinController extends Controller
                 }
             }
 
-            // Validasi umur tanaman: jika data di DB sudah lampau (> 115 hari atau 0),
-            // maka gunakan umur tanaman pada musim tanam berjalan (22 HST - Vegetatif)
-            $rawAge = $plant ? (int) $plant->age() : 0;
-            if ($rawAge > 0 && $rawAge <= $harvestCycleDays) {
-                $hst = $rawAge;
+            // Validasi umur tanaman & musim tanam
+            $isPastSeason = str_contains($season, '2024');
+            if ($isPastSeason) {
+                $hst = 110;
+                $fase = 'Selesai Panen';
+                $daysToHarvest = 0;
+                $harvestDate = Carbon::parse('2024-10-20');
+                $baseYield = 6.2;
+                $yieldVariance = 0.3;
+                $yieldPerPetak = 775;
             } else {
-                $hst = 22; // Default aktif musim berjalan (22 HST)
-            }
+                $rawAge = $plant ? (int) $plant->age() : 0;
+                if ($rawAge > 0 && $rawAge <= $harvestCycleDays) {
+                    $hst = $rawAge;
+                } else {
+                    $hst = 22; // Default aktif musim berjalan (22 HST)
+                }
 
-            // Tentukan fase pertumbuhan tanaman berdasarkan HST
-            if ($hst <= 35) {
-                $fase = 'Vegetatif';
-            } elseif ($hst <= 65) {
-                $fase = 'Reproduktif';
-            } elseif ($hst <= 105) {
-                $fase = 'Pematangan';
-            } else {
-                $fase = 'Siap Panen';
-            }
+                // Tentukan fase pertumbuhan tanaman berdasarkan HST
+                if ($hst <= 35) {
+                    $fase = 'Vegetatif';
+                } elseif ($hst <= 65) {
+                    $fase = 'Reproduktif';
+                } elseif ($hst <= 105) {
+                    $fase = 'Pematangan';
+                } else {
+                    $fase = 'Siap Panen';
+                }
 
-            // Perkiraan Panen (dihitung dari sisa hari panen)
-            $daysToHarvest = max(1, $harvestCycleDays - $hst);
-            $harvestDate = Carbon::now()->addDays($daysToHarvest);
+                $daysToHarvest = max(1, $harvestCycleDays - $hst);
+                $harvestDate = Carbon::now()->addDays($daysToHarvest);
+                $baseYield = 6.8;
+                $yieldVariance = 0.4;
+                $yieldPerPetak = 850;
+            }
 
             // 4. Ekstraksi Sensor dengan fallback agronomi realistis (agar tidak pernah 0°C atau 0%)
             $soilMoist = $this->extractSensorValue($latestSensors, ['soil_hum1', 'soil1_hum', 'soil_moist1', 'soil_moist2', 'soil_moist', 'hum'], 78.0);
@@ -159,7 +172,7 @@ class DigitalTwinController extends Controller
                 'user' => [
                     'name' => $user?->user_name ?? 'Pak Suyanto',
                     'role' => 'Petani Mandiri',
-                    'active_season' => 'Musim Tanam 2025/2026',
+                    'active_season' => $season,
                 ],
                 'site' => [
                     'site_id' => $currentSiteId,
