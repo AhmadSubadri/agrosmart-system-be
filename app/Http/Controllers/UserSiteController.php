@@ -44,6 +44,21 @@ class UserSiteController extends Controller
                 ->get();
         }
 
+        // Jika masih kosong, coba cocokkan site dengan nama user atau fallback ke site aktif
+        if ($sites->isEmpty()) {
+            $cleanedName = str_replace('bpp', '', strtolower($user->user_name ?? ''));
+            $matchedSites = DB::table('tm_site')
+                ->where('site_name', 'LIKE', '%' . $cleanedName . '%')
+                ->orWhere('site_id', 'LIKE', '%' . ($user->user_name ?? '') . '%')
+                ->get();
+
+            if ($matchedSites->isNotEmpty()) {
+                $sites = $matchedSites;
+            } else {
+                $sites = DB::table('tm_site')->where('site_sts', 1)->get();
+            }
+        }
+
         if ($sites->isEmpty()) {
             return response()->json(['message' => 'Tidak ada lahan yang terdaftar di akun ini'], 404);
         }
